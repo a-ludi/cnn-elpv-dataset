@@ -4,8 +4,17 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+tensorflow = "*"
+pandas = "*"
+numpy = "*"
+matplotlib = "*"
+keras = "*"
 
 [dev-packages]
+black = "*"
+isort = "*"
+flake8 = "*"
+pre-commit = "*"
 
 [requires]
 python_version = "3.10"
