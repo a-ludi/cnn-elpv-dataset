@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jun  7 16:29:52 2022
+"""CNN-based identification of defective solar cells in electroluminescence imagery.
 
-@author: alu
+@author: Arne Ludwig <arne.ludwig@posteo.de>
+@copyright: Copyright © 2022 by Arne Ludwig
 """
+
+from elpv_dataset.utils.elpv_reader import load_dataset
+
+images, probs, types = load_dataset()
