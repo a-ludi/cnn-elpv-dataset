@@ -16,7 +16,20 @@
 
 ## Background
 
-Solar cells...
+The life span is an important aspect of photovoltaic (PV) modules.
+Electroluminescence (EL) imaging is an established technique for the visual
+inspection of PV modules. It enables identification of defects in
+solar cells that may impede the life span of the module. However, manual
+inspection of EL images is tedious and requires expert knowledge. Therefore,
+an automated pipeline may enable high-throughput quality assessment of
+PV modules.
+
+In this work, we use a convolutional neural network (CNN) architecture to
+predict the defect probability and their structural type (mono- vs.
+polycrystalline) of PV modules using EL images. We compare the performance of
+our approach to existing solutions with respect to defect probability.
+Furthermore, we also employ techniques from the field of explainable artificial
+intelligence (AI) to visualize how the CNN reached its decision.
 
 
 ## Install
