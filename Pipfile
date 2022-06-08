@@ -9,6 +9,7 @@ numpy = "*"
 matplotlib = "*"
 keras = "*"
 pillow = "*"
+scikit-learn = "*"
 
 [dev-packages]
 black = "*"
