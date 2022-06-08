@@ -138,7 +138,7 @@ def binary_accuracy(y_true, y_pred, threshold=0.5):
     """
     matches = y_true.astype(bool) == (y_pred >= threshold)
 
-    return matches.sum(axis=0) / matches.shape[0]
+    return matches.mean(axis=0)
 
 
 def mean_absolute_error(y_true, y_pred):
@@ -146,7 +146,7 @@ def mean_absolute_error(y_true, y_pred):
 
     @returns  Mean absolute errors of shape `y_true.shape[1:]`
     """
-    return np.sum(np.abs(y_true - y_pred), axis=0)
+    return np.mean(np.abs(y_true - y_pred), axis=0)
 
 
 cnn = keras.applications.MobileNetV3Large(
