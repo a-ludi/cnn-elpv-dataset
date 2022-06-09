@@ -10,6 +10,7 @@ matplotlib = "*"
 keras = "*"
 pillow = "*"
 scikit-learn = "*"
+seaborn = "*"
 
 [dev-packages]
 black = "*"
