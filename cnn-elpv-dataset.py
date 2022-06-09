@@ -332,7 +332,7 @@ def plot_learning_curve(history, name, exclude=[]):
             ls = ":"
         plt.plot(curve, ls=ls, label=key)
     plt.grid(True)
-    # plt.legend(loc=1)
+    plt.legend()
     plt.title(f"Learning Curve of {name}")
     plt.xlabel("Epoch")
     plt.show()
