@@ -18,11 +18,19 @@ from tensorflow import keras
 
 from elpv_dataset.utils.elpv_reader import load_dataset
 
+learning_rate_methods = {"const", "exp-decay", "adaptive"}
+
+
 # %% Initialization
 
 use_pretrained_type_model = True
+learning_rate_method = os.environ.get("LR", "const")
 
-models_root = Path("./models")
+assert (
+    learning_rate_method in learning_rate_methods
+), f"LR must be one of {', '.join(learning_rate_methods)}"
+
+models_root = Path("./models") / f"{learning_rate_method}-lr"
 models_root.mkdir(parents=True, exist_ok=True)
 
 history_path = models_root / "history.json"
@@ -232,10 +240,20 @@ prob = keras.layers.Dense(1, activation="sigmoid", name="dense_prob_out")(combin
 
 model = keras.Model(inputs, [type_, prob], name="elpv")
 
+if learning_rate_method in {"const", "adaptive"}:
+    learning_rate = 1e-4
+else:
+    learning_rate = keras.optimizers.schedules.ExponentialDecay(
+        1e-4,
+        decay_steps=500,
+        decay_rate=0.9,
+        staircase=True,
+    )
+
 model.compile(
     loss=["binary_crossentropy", "MSE"],
     loss_weights=[0.5, 1.0],
-    optimizer=keras.optimizers.RMSprop(learning_rate=1e-4),
+    optimizer=keras.optimizers.RMSprop(learning_rate=learning_rate),
     metrics=[["binary_accuracy"], ["MAE", r2_score]],
 )
 model.summary()
@@ -287,6 +305,19 @@ if training_mode:
     for prob, weight in zip(y_probs_train_values, probs_weights):
         sample_weights[y_probs_train == prob] = weight
 
+    fit_callbacks = []
+    if learning_rate_method in {"adaptive"}:
+        fit_callbacks.append(
+            keras.callbacks.ReduceLROnPlateau(
+                monitor="val_loss",
+                factor=0.8,
+                patience=5,
+                verbose=1,
+                mode="auto",
+                min_delta=1e-5,
+            )
+        )
+
     model.fit(
         X_train,
         [y_types_train, y_probs_train],
@@ -294,9 +325,12 @@ if training_mode:
         sample_weight=sample_weights,
         validation_data=(X_test, (y_types_test, y_probs_test)),
         batch_size=8,
+        callbacks=fit_callbacks,
     )
     model.save(model_path, save_format="h5")
-    history = dict(model.history.history)
+    history = dict(
+        (k, [float(v) for v in vs]) for k, vs in model.history.history.items()
+    )
     history["__timestamp__"] = training_begin
     with history_path.open("w") as outfile:
         json.dump(history, outfile)
@@ -369,20 +403,10 @@ if not training_mode:
         print(f"  {key:<20s}: {val:9.2f}")
 
     plot_learning_curve(
-        dict(
-            (key, history[key])
-            for key in ["dense_prob_out_loss", "val_dense_prob_out_loss"]
-        ),
-        "Defect Prob. Model",
+        history,
+        f"Defect Prob. Model\n(LR={learning_rate_method})",
+        exclude=["dense_type_1", "MAE"],
     )
-    plot_learning_curve(
-        dict(
-            (key, history[key])
-            for key in ["dense_prob_out_r2_score", "val_dense_prob_out_r2_score"]
-        ),
-        "Defect Prob. Model",
-    )
-    plot_learning_curve(history, "Defect Prob. Model", exclude=["dense_type_1", "MAE"])
 
     test_pred = model.predict(X_test)
 
