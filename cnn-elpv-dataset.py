@@ -409,21 +409,19 @@ if not training_mode:
             mask = mask.reshape(-1)
             sample = X_test[mask][:, :, :, 0]
 
-            for k in range(4):
-                k1, k2 = divmod(k, 2)
-                row = 2 * i + k1
-                col = 2 * j + k2
-                plt.subplot(8, 8, 8 * row + col + 1)
+            row = i
+            col = j
+            plt.subplot(4, 4, 4 * row + col + 1)
 
-                if k < len(sample):
-                    plt.imshow(sample[k])
+            if len(sample) > 0:
+                plt.imshow(sample[0])
 
-                plt.axis("image")
-                plt.xticks([])
-                plt.yticks([])
-                if row == 0 and k == 0:
-                    plt.title(f"true={true_prob:.1f}")
-                if col == 0 and k == 0:
-                    plt.ylabel(f"pred={pred_prob:.1f}")
+            plt.axis("image")
+            plt.xticks([])
+            plt.yticks([])
+            if row == 0:
+                plt.title(f"true={true_prob:.1f}")
+            if col == 0:
+                plt.ylabel(f"pred={pred_prob:.1f}")
     plt.tight_layout()
     plt.show()
