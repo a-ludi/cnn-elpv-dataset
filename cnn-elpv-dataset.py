@@ -382,8 +382,10 @@ if training_mode:
     metrics = dict(
         train_type_accuracy=binary_accuracy(y_types_train, train_pred[0]).item(),
         train_prob_mae=mean_absolute_error(y_probs_train, train_pred[1]).item(),
+        train_prob_r2_score=r2_score(y_probs_train, train_pred[1]).numpy().item(),
         test_type_accuracy=binary_accuracy(y_types_test, test_pred[0]).item(),
         test_prob_mae=mean_absolute_error(y_probs_test, test_pred[1]).item(),
+        test_prob_r2_score=r2_score(y_probs_test, test_pred[1]).numpy().item(),
     )
     metrics["__timestamp__"] = training_begin
     with metrics_path.open("w") as outfile:
