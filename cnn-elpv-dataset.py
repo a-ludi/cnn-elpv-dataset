@@ -18,19 +18,21 @@ from tensorflow import keras
 
 from elpv_dataset.utils.elpv_reader import load_dataset
 
+architectures = {"v1", "v2", "v3"}
 learning_rate_methods = {"const", "exp-decay", "adaptive"}
 
 
 # %% Initialization
 
 use_pretrained_type_model = True
+architecture = os.environ.get("ARCH", "v3")
 learning_rate_method = os.environ.get("LR", "adaptive")
 
 assert (
     learning_rate_method in learning_rate_methods
 ), f"LR must be one of {', '.join(learning_rate_methods)}"
 
-models_root = Path("./models") / f"{learning_rate_method}-lr"
+models_root = Path("./models") / architecture / f"{learning_rate_method}-lr"
 models_root.mkdir(parents=True, exist_ok=True)
 
 history_path = models_root / "history.json"
@@ -239,18 +241,42 @@ type_model.compile(
     metrics="binary_accuracy",
 )
 
-prob1 = keras.layers.Dense(1, activation="sigmoid", name="dense_prob_1")(
-    flat_feature_maps
-)
-modulated_prob1 = keras.layers.Multiply()([prob1, type_])
-prob2 = keras.layers.Dense(1, activation="sigmoid", name="dense_prob_2")(
-    flat_feature_maps
-)
-type_inv = keras.layers.Lambda(lambda x: 1 - x, name="invert_type")(type_)
-modulated_prob2 = keras.layers.Multiply()([prob2, type_inv])
 
-combined_prob = keras.layers.Concatenate()([modulated_prob1, modulated_prob2])
-prob = keras.layers.Dense(1, activation="sigmoid", name="dense_prob_out")(combined_prob)
+class BinaryMultiplexer(keras.layers.Layer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def call(self, x):
+        mask = tf.round(x[0])
+        return mask * x[1] + (1 - mask) * x[2]
+
+
+if architecture == "v1":
+    features_type = keras.layers.Concatenate()([flat_feature_maps, type_])
+    prob = keras.layers.Dense(1024, activation="sigmoid", name="dense_prob_1")(
+        features_type
+    )
+    prob = keras.layers.Dense(1, activation="sigmoid", name="dense_prob_2")(prob)
+elif architecture in {"v2", "v3"}:
+    prob1 = keras.layers.Dense(1, activation="sigmoid", name="dense_prob_1")(
+        flat_feature_maps
+    )
+
+    modulated_prob1 = keras.layers.Multiply()([prob1, type_])
+    prob2 = keras.layers.Dense(1, activation="sigmoid", name="dense_prob_2")(
+        flat_feature_maps
+    )
+
+    if architecture == "v2":
+        type_inv = keras.layers.Lambda(lambda x: 1 - x, name="invert_type")(type_)
+        modulated_prob2 = keras.layers.Multiply()([prob2, type_inv])
+
+        combined_prob = keras.layers.Concatenate()([modulated_prob1, modulated_prob2])
+        prob = keras.layers.Dense(1, activation="sigmoid", name="dense_prob_out")(
+            combined_prob
+        )
+    elif architecture == "v3":
+        prob = BinaryMultiplexer(name="switch_prob")([type_, prob1, prob2])
 
 model = keras.Model(inputs, [type_, prob], name="elpv")
 
@@ -404,7 +430,13 @@ if not training_mode:
         disp = ConfusionMatrixDisplay(cm, display_labels=type_values)
         disp.plot()
 
-    model = keras.models.load_model(model_path, custom_objects=dict(r2_score=r2_score))
+    model = keras.models.load_model(
+        model_path,
+        custom_objects=dict(
+            r2_score=r2_score,
+            BinaryMultiplexer=BinaryMultiplexer,
+        ),
+    )
     with (history_path).open() as infile:
         history = json.load(infile)
         print("-- loaded `history` for run " + history.pop("__timestamp__", "N/A"))
@@ -422,14 +454,14 @@ if not training_mode:
         history_scaled["-1e4_learning_rate"] = scaled_lr
         plot_learning_curve(
             history_scaled,
-            f"Defect Prob. Model\n(LR={learning_rate_method})",
+            f"Defect Prob. Model\n(LR={learning_rate_method}, ARCH={architecture})",
             exclude=["dense_type_1", "MAE"],
         )
         del history_scaled
     else:
         plot_learning_curve(
             history,
-            f"Defect Prob. Model\n(LR={learning_rate_method})",
+            f"Defect Prob. Model\n(LR={learning_rate_method}, ARCH={architecture})",
             exclude=["dense_type_1", "MAE"],
         )
 
