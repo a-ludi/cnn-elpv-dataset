@@ -441,7 +441,9 @@ if not training_mode:
     plt.show()
 
     plt.figure(figsize=(6.4, 6.4))
-    sns.violinplot(y_probs_test.reshape(-1), test_pred[1].reshape(-1), inner="stick")
+    sns.violinplot(
+        x=y_probs_test.reshape(-1), y=test_pred[1].reshape(-1), inner="stick"
+    )
     plt.title("Defect Probability")
     plt.xticks(range(4), ["0", "⅓", "⅔", "1"])
     plt.xlabel("Test Values")
