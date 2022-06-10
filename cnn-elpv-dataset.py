@@ -416,11 +416,22 @@ if not training_mode:
     for key, val in metrics.items():
         print(f"  {key:<20s}: {val:9.2f}")
 
-    plot_learning_curve(
-        history,
-        f"Defect Prob. Model\n(LR={learning_rate_method})",
-        exclude=["dense_type_1", "MAE"],
-    )
+    if "lr" in history:
+        history_scaled = dict(history)
+        scaled_lr = 1e4 * np.array(history_scaled.pop("lr"))
+        history_scaled["-1e4_learning_rate"] = scaled_lr
+        plot_learning_curve(
+            history_scaled,
+            f"Defect Prob. Model\n(LR={learning_rate_method})",
+            exclude=["dense_type_1", "MAE"],
+        )
+        del history_scaled
+    else:
+        plot_learning_curve(
+            history,
+            f"Defect Prob. Model\n(LR={learning_rate_method})",
+            exclude=["dense_type_1", "MAE"],
+        )
 
     test_pred = model.predict(X_test)
 
