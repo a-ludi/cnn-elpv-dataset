@@ -231,6 +231,30 @@ def r2_score(y_true, y_pred):
     return 1 - y_diff / y_square
 
 
+class NormalNoise(keras.layers.Layer):
+    def __init__(self, *args, stddev=0.05, training=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.training = training
+        self.stddev = stddev
+
+    def get_config(self):
+        return dict(
+            training=self.training,
+            stddev=self.stddev,
+        )
+
+    def call(self, x):
+        if self.training:
+            noise = tf.random.normal(
+                x.shape[:-1],
+                stddev=self.stddev,
+                dtype=x.dtype,
+            )
+            for i in range(x.shape[-1]):
+                x[:, :, :, i] += noise
+        return x
+
+
 cnn = keras.applications.MobileNetV3Large(
     input_shape=X.shape[1:],
     alpha=1.0,
@@ -243,7 +267,13 @@ cnn = keras.applications.MobileNetV3Large(
 cnn.trainable = False
 
 inputs = keras.layers.Input(X.shape[1:])
-feature_maps = cnn(inputs)
+
+data_augmentation = keras.models.Sequential()
+data_augmentation.add(keras.layers.RandomFlip())
+data_augmentation.add(NormalNoise(stddev=0.05))
+
+aug_inputs = data_augmentation(inputs)
+feature_maps = cnn(aug_inputs)
 flat_feature_maps = keras.layers.Flatten()(feature_maps)
 type_ = keras.layers.Dense(1, activation="sigmoid", name="dense_type_1")(
     flat_feature_maps
@@ -319,7 +349,12 @@ if training_mode:
     training_begin = time.strftime("%Y-%m-%dT%H-%M-%S")
 
     if use_pretrained_type_model:
-        type_model = keras.models.load_model(type_model_path)
+        type_model = keras.models.load_model(
+            type_model_path,
+            custom_objects=dict(
+                NormalNoise=NormalNoise,
+            ),
+        )
     else:
         # 1. Train cell type model only
         type_model.fit(
@@ -375,7 +410,7 @@ if training_mode:
     model.fit(
         X_train,
         [y_types_train, y_probs_train],
-        epochs=300,
+        epochs=500,
         sample_weight=sample_weights,
         validation_data=(X_test, (y_types_test, y_probs_test)),
         batch_size=8,
@@ -432,7 +467,12 @@ def plot_learning_curve(history, name, exclude=[], save_path=None):
 
 if not training_mode:
     if not use_pretrained_type_model:
-        type_model = keras.models.load_model(type_model_path)
+        type_model = keras.models.load_model(
+            type_model_path,
+            custom_objects=dict(
+                NormalNoise=NormalNoise,
+            ),
+        )
         with (type_history_path).open() as infile:
             type_history = json.load(infile)
             print(
@@ -452,6 +492,7 @@ if not training_mode:
         model_path,
         custom_objects=dict(
             r2_score=r2_score,
+            NormalNoise=NormalNoise,
             BinaryMultiplexer=BinaryMultiplexer,
         ),
     )
