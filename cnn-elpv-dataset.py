@@ -24,7 +24,7 @@ learning_rate_methods = {"const", "exp-decay", "adaptive"}
 # %% Initialization
 
 use_pretrained_type_model = True
-learning_rate_method = os.environ.get("LR", "const")
+learning_rate_method = os.environ.get("LR", "adaptive")
 
 assert (
     learning_rate_method in learning_rate_methods
@@ -259,8 +259,8 @@ if learning_rate_method in {"const", "adaptive"}:
 else:
     learning_rate = keras.optimizers.schedules.ExponentialDecay(
         1e-4,
-        decay_steps=500,
-        decay_rate=0.9,
+        decay_steps=1_000,
+        decay_rate=0.99,
         staircase=True,
     )
 
@@ -325,7 +325,7 @@ if training_mode:
             keras.callbacks.ReduceLROnPlateau(
                 monitor="val_loss",
                 factor=0.8,
-                patience=5,
+                patience=10,
                 verbose=1,
                 mode="auto",
                 min_delta=1e-5,
@@ -335,7 +335,7 @@ if training_mode:
     model.fit(
         X_train,
         [y_types_train, y_probs_train],
-        epochs=200,
+        epochs=300,
         sample_weight=sample_weights,
         validation_data=(X_test, (y_types_test, y_probs_test)),
         batch_size=8,
