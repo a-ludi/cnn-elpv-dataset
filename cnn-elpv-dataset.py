@@ -69,6 +69,8 @@ images, probs, types = load_dataset()
 
 # %% Inspect data
 
+# Number of data points
+N = images.shape[0]
 pixel_range = np.amin(images), np.amax(images)
 prob_values, probs_counts = np.unique(probs, return_counts=True)
 type_values, type_counts = np.unique(types, return_counts=True)
@@ -77,10 +79,7 @@ if not training_mode:
     print("Dataset Characteristics")
     print("-----------------------")
     print("Input:")
-    print(
-        f"  {images.shape[0]} images of size "
-        f"{'x'.join(str(d) for d in images.shape[1:])}"
-    )
+    print(f"  {N} images of size {'x'.join(str(d) for d in images.shape[1:])}")
     print(
         f"  Pixels are in range {pixel_range[0]}-{pixel_range[1]} "
         f"of type {images.dtype}"
@@ -120,13 +119,14 @@ if not training_mode:
     plt.tight_layout()
     plt.show()
 
-    plt.figure(figsize=[3.2 * 5, 3.2 * 4])
-    samples = images[rng.integers(images.shape[0], size=5 * 4)]
-    for i in range(4):
-        for j in range(5):
+    samples_grid = (4, 5)
+    plt.figure(figsize=[3.2 * samples_grid[1], 3.2 * samples_grid[0]])
+    samples = images[rng.integers(N, size=samples_grid[0] * samples_grid[1])]
+    for i in range(samples_grid[0]):
+        for j in range(samples_grid[1]):
             k = i * 5 + j
             sample = samples[k]
-            plt.subplot(4, 5, k + 1)
+            plt.subplot(samples_grid[0], samples_grid[1], k + 1)
             plt.imshow(sample)
             plt.axis("image")
             plt.xticks([])
