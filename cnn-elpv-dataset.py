@@ -118,6 +118,20 @@ if not training_mode:
     plt.tight_layout()
     plt.show()
 
+    plt.figure(figsize=[3.2 * 5, 3.2 * 4])
+    samples = images[rng.integers(images.shape[0], size=5 * 4)]
+    for i in range(4):
+        for j in range(5):
+            k = i * 5 + j
+            sample = samples[k]
+            plt.subplot(4, 5, k + 1)
+            plt.imshow(sample)
+            plt.axis("image")
+            plt.xticks([])
+            plt.yticks([])
+    plt.tight_layout()
+    plt.savefig("solarcell.png", facecolor="black")
+
 
 # %% Data Preprocessing
 
