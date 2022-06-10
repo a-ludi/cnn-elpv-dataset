@@ -109,14 +109,21 @@ if not training_mode:
             if j == 0 and i % n_samples == 0:
                 plt.ylabel(f"← {type_}")
     plt.tight_layout()
+    plt.savefig("solarcell_samples.png")
     plt.show()
 
     plt.hist(probs)
+    plt.title("Defect Probabilities")
+    plt.ylabel("Counts")
     plt.tight_layout()
+    plt.savefig("dist_probs.png")
     plt.show()
 
     plt.hist(types)
+    plt.title("Cell types")
+    plt.ylabel("Counts")
     plt.tight_layout()
+    plt.savefig("dist_types.png")
     plt.show()
 
     samples_grid = (4, 5)
@@ -401,7 +408,7 @@ if training_mode:
 # %% Evaluation
 
 
-def plot_learning_curve(history, name, exclude=[]):
+def plot_learning_curve(history, name, exclude=[], save_path=None):
     """Plot learning curve(s) from history dictionary."""
     for key, curve in history.items():
         if any(ex in key for ex in exclude):
@@ -418,6 +425,8 @@ def plot_learning_curve(history, name, exclude=[]):
     plt.legend()
     plt.title(f"Learning Curve of {name}")
     plt.xlabel("Epoch")
+    if save_path is not None:
+        plt.savefig(save_path, dpi=200)
     plt.show()
 
 
@@ -465,6 +474,7 @@ if not training_mode:
             history_scaled,
             f"Defect Prob. Model\n(LR={learning_rate_method}, ARCH={architecture})",
             exclude=["dense_type_1", "MAE"],
+            save_path="learning_curve.png",
         )
         del history_scaled
     else:
@@ -479,6 +489,7 @@ if not training_mode:
     cm = confusion_matrix(y_types_val, val_pred[0] >= 0.5)
     disp = ConfusionMatrixDisplay(cm, display_labels=type_values)
     disp.plot()
+    plt.savefig("types_confusion_matrix.png", dpi=200)
     plt.show()
 
     plt.figure(figsize=(6.4, 6.4))
@@ -488,6 +499,7 @@ if not training_mode:
     plt.xlabel("Validation Values")
     plt.ylim([0, 1])
     plt.ylabel("Predicted Values")
+    plt.savefig("prob_regression.png", dpi=200)
     plt.show()
 
     prob_val_pred_quant = np.round(3 * val_pred[1]) / 3
