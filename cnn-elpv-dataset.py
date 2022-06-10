@@ -527,3 +527,22 @@ if not training_mode:
                 plt.ylabel(f"pred={pred_prob:.1f}")
     plt.tight_layout()
     plt.show()
+
+    # %% Quiz
+
+    n_quiz = 8
+    quiz_sample = rng.integers(X_val.shape[0], size=n_quiz)
+    for i, k in enumerate(quiz_sample):
+        plt.figure(figsize=(3.2, 3.2), facecolor="black")
+        sample = X_val[k, :, :, 0]
+        type_ = type_values[int(val_pred[0][k].round())]
+        prob = val_pred[1][k].item()
+
+        plt.imshow(sample)
+        plt.axis("image")
+        plt.xticks([])
+        plt.yticks([])
+        plt.xlabel(f"Type: {type_}     Defect Prob.: {prob:.2f}", color="white")
+        plt.tight_layout()
+        plt.savefig(f"quiz-{i}.png", dpi=200)
+        plt.show()
