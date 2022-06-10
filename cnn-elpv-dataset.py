@@ -133,6 +133,7 @@ if not training_mode:
             plt.yticks([])
     plt.tight_layout()
     plt.savefig("solarcell.png", facecolor="black")
+    plt.show()
 
 
 # %% Data Preprocessing
