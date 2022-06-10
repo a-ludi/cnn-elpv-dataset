@@ -138,12 +138,23 @@ if not training_mode:
 
 # %% Data Preprocessing
 
-if not training_mode:
-    # Reduce memory usage by selecting a "test set" before preprocessing
-    sample = rng.integers(images.shape[0], size=500)
-    images[sample] = images
-    probs[sample] = probs
-    types[sample] = types
+# This is used to deterministically choose a random set of data points
+# for final validation.
+data_rng = np.random.default_rng(1899)
+
+validation_set = np.zeros((N,), dtype=bool)
+validation_set[data_rng.integers(N, size=int(N * 0.2))] = True
+
+if training_mode:
+    # Remove final validation data before preprocessing
+    pre_selector = ~validation_set
+else:
+    # Reduce to the validation set before preprocessing
+    pre_selector = validation_set
+
+images = images[pre_selector]
+probs = probs[pre_selector]
+types = types[pre_selector]
 
 # Duplicate gray-channel to get RGB images
 X = np.stack([images] * 3, axis=-1)
@@ -169,15 +180,10 @@ if training_mode:
         y_probs_test,
     ) = train_test_split(X, y_types, y_probs, test_size=0.2)
 else:
-    # Fake splitting in training and test data:
-    # - use NO DATA for training
-    # - use pre-selected random sample for test
-    X_train = np.empty_like(X)
-    y_types_train = np.empty_like(y_types)
-    y_probs_train = np.empty_like(y_probs)
-    X_test = X
-    y_types_test = y_types
-    y_probs_test = y_probs
+    # Provide proper names for validation data
+    X_val = X
+    y_types_val = y_types
+    y_probs_val = y_probs
 
 
 # %% Model definition
@@ -427,9 +433,9 @@ if not training_mode:
 
         plot_learning_curve(type_history, "Type Model")
 
-        test_pred_type = type_model.predict(X_test)
+        val_pred_type = type_model.predict(X_val)
 
-        cm = confusion_matrix(y_types_test, test_pred_type >= 0.5)
+        cm = confusion_matrix(y_types_val, val_pred_type >= 0.5)
         disp = ConfusionMatrixDisplay(cm, display_labels=type_values)
         disp.plot()
 
@@ -468,32 +474,30 @@ if not training_mode:
             exclude=["dense_type_1", "MAE"],
         )
 
-    test_pred = model.predict(X_test)
+    val_pred = model.predict(X_val)
 
-    cm = confusion_matrix(y_types_test, test_pred[0] >= 0.5)
+    cm = confusion_matrix(y_types_val, val_pred[0] >= 0.5)
     disp = ConfusionMatrixDisplay(cm, display_labels=type_values)
     disp.plot()
     plt.show()
 
     plt.figure(figsize=(6.4, 6.4))
-    sns.violinplot(
-        x=y_probs_test.reshape(-1), y=test_pred[1].reshape(-1), inner="stick"
-    )
+    sns.violinplot(x=y_probs_val.reshape(-1), y=val_pred[1].reshape(-1), inner="stick")
     plt.title("Defect Probability")
     plt.xticks(range(4), ["0", "⅓", "⅔", "1"])
-    plt.xlabel("Test Values")
+    plt.xlabel("Validation Values")
     plt.ylim([0, 1])
     plt.ylabel("Predicted Values")
     plt.show()
 
-    prob_test_pred_quant = np.round(3 * test_pred[1]) / 3
+    prob_val_pred_quant = np.round(3 * val_pred[1]) / 3
     plt.figure(figsize=(6.4, 6.4))
     for i, pred_prob in enumerate(prob_values):
-        mask_pred = prob_test_pred_quant == pred_prob
+        mask_pred = prob_val_pred_quant == pred_prob
         for j, true_prob in enumerate(prob_values):
-            mask = (y_probs_test == true_prob) & mask_pred
+            mask = (y_probs_val == true_prob) & mask_pred
             mask = mask.reshape(-1)
-            sample = X_test[mask][:, :, :, 0]
+            sample = X_val[mask][:, :, :, 0]
 
             row = i
             col = j
