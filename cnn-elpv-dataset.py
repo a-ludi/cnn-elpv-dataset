@@ -25,6 +25,7 @@ learning_rate_methods = {"const", "exp-decay", "adaptive"}
 # %% Initialization
 
 use_pretrained_type_model = True
+training_id = os.environ.get("TRAINING_ID", None)
 architecture = os.environ.get("ARCH", "v3")
 learning_rate_method = os.environ.get("LR", "adaptive")
 
@@ -35,11 +36,13 @@ assert (
 models_root = Path("./models") / architecture / f"{learning_rate_method}-lr"
 models_root.mkdir(parents=True, exist_ok=True)
 
-history_path = models_root / "history.json"
-metrics_path = models_root / "metrics.json"
-model_path = models_root / "model.h5"
-type_history_path = models_root / "type_history.json"
-type_model_path = models_root / "type_model.h5"
+file_prefix = f"{training_id}_" if training_id is not None else ""
+history_path = models_root / f"{file_prefix}history.json"
+metrics_path = models_root / f"{file_prefix}metrics.json"
+model_path = models_root / f"{file_prefix}model.h5"
+type_history_path = models_root / f"{file_prefix}type_history.json"
+type_model_path = models_root / f"{file_prefix}type_model.h5"
+
 
 # Only use pre-trained type model if it exists!
 if not type_model_path.exists():
