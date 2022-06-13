@@ -49,7 +49,7 @@ if not type_model_path.exists():
     use_pretrained_type_model = False
 
 # Detect whether we are running on a cluster for training only
-training_mode = "SLURM_JOB_ID" in os.environ
+training_mode = os.environ.get("TRAINING", 0) or "SLURM_JOB_ID" in os.environ
 rng = np.random.default_rng()
 
 if "SLURM_CPUS_PER_TASK" in os.environ:
