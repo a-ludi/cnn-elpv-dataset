@@ -1,6 +1,8 @@
 models
 __pycache__
 *.png
+*.zip
+*.tar.gz
 
 # IDEs
 .spyproject
