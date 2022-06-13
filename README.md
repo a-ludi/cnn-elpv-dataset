@@ -1,6 +1,6 @@
 # CNN-based Solution of the ELPV dataset
 
-[![license](https://img.shields.io/badge/license-by--nc--sa%204.0%20Int.-green?logo=creative-commons)](LICENSE.md)
+[![license](https://img.shields.io/badge/license-by--nc--sa%204.0%20Int.-EF9421?logo=creative-commons)](LICENSE.md)
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
 
 > CNN-based identification of defective solar cells in electroluminescence imagery.
