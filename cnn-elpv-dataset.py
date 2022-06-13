@@ -232,18 +232,29 @@ def r2_score(y_true, y_pred):
 
 
 class NormalNoise(keras.layers.Layer):
+    """Add normally distributed white noise to inputs.
+
+    This layer will add normally distributed white noise with mean zero and
+    standard deviation `stddev` to the images. During inference time, the
+    output will be identical to input. Call the layer with `training=True`
+    to add noise to the input.
+    """
+
     def __init__(self, *args, stddev=0.05, training=False, **kwargs):
+        """Create random normal noise layer."""
         super().__init__(*args, **kwargs)
         self.training = training
         self.stddev = stddev
 
     def get_config(self):
+        """Return the config of the Model."""
         return dict(
             training=self.training,
             stddev=self.stddev,
         )
 
     def call(self, x):
+        """Apply the layer to `x`."""
         if self.training:
             noise = tf.random.normal(
                 x.shape[:-1],
@@ -287,10 +298,21 @@ type_model.compile(
 
 
 class BinaryMultiplexer(keras.layers.Layer):
+    """Layer that chooses one of two inputs based on the first.
+
+    It takes as input a list of three tensors. The first tensor should have
+    shape `(None, 1)` and contain values in `[0, 1]`. The latter two tensors
+    must have the same shape, type and value range. It returns the elements
+    of the second tensor where the first is below 0.5 and the elements of
+    the third tensor where the firs is equal to or above 0.5.
+    """
+
     def __init__(self, *args, **kwargs):
+        """Create multiplex layer."""
         super().__init__(*args, **kwargs)
 
     def call(self, x):
+        """Apply the layer to `x`."""
         mask = tf.round(x[0])
         return mask * x[1] + (1 - mask) * x[2]
 
