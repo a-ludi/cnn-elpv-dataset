@@ -71,6 +71,7 @@ images, probs, types = load_dataset()
 
 # Number of data points
 N = images.shape[0]
+img_size = images.shape[1:3]
 pixel_range = np.amin(images), np.amax(images)
 prob_values, probs_counts = np.unique(probs, return_counts=True)
 type_values, type_counts = np.unique(types, return_counts=True)
@@ -587,3 +588,37 @@ if not training_mode:
         plt.tight_layout()
         plt.savefig(f"quiz-{i}.png", dpi=200)
         plt.show()
+
+# %% Explainable AI
+
+occlude_list = list(range(1, 10))
+occlude_shape = (15, 15)
+occlude_value = 0
+tile_counts = tuple(np.ceil(np.array(img_size) / np.array(occlude_shape)).astype(int))
+
+
+for occlude_index in occlude_list:
+    orig_image = X_val[occlude_index]
+    augmented_images = np.broadcast_to(
+        orig_image, (tile_counts[0] * tile_counts[1], *orig_image.shape)
+    ).copy()
+    # augment images
+    for i in range(tile_counts[0]):
+        for j in range(tile_counts[1]):
+            k = i * tile_counts[1] + j
+            origin = (i * occlude_shape[0], j * occlude_shape[1])
+            augmented_images[
+                k,
+                origin[0] : min(origin[0] + occlude_shape[0], img_size[0]),
+                origin[1] : min(origin[1] + occlude_shape[1], img_size[1]),
+                :,
+            ] = occlude_value
+
+    occlude_preds = model.predict(augmented_images)
+    occlude_probs = occlude_preds[1].reshape(tile_counts)
+    print(occlude_probs.min(), occlude_probs.max())
+    plt.subplot(1, 2, 1)
+    plt.imshow(orig_image[:, :, 0])
+    plt.subplot(1, 2, 2)
+    plt.imshow(occlude_probs)
+    plt.show()
