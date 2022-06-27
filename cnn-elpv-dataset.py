@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
-from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, confusion_matrix
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
 
@@ -28,6 +28,7 @@ use_pretrained_type_model = True
 training_id = os.environ.get("TRAINING_ID", None)
 architecture = os.environ.get("ARCH", "v3")
 learning_rate_method = os.environ.get("LR", "adaptive")
+plot_fmt = "svg"
 
 assert (
     learning_rate_method in learning_rate_methods
@@ -63,6 +64,7 @@ if "SLURM_CPUS_PER_TASK" in os.environ:
 if not training_mode:
     import matplotlib.pyplot as plt
     import seaborn as sns
+    from matplotlib import rcParams
 
 
 # %% Load data
@@ -76,6 +78,8 @@ images, probs, types = load_dataset()
 N = images.shape[0]
 pixel_range = np.amin(images), np.amax(images)
 prob_values, probs_counts = np.unique(probs, return_counts=True)
+prob_names = ["0", "⅓", "⅔", "1"]
+assert len(prob_values) == len(prob_names)
 type_values, type_counts = np.unique(types, return_counts=True)
 
 if not training_mode:
@@ -112,21 +116,24 @@ if not training_mode:
             if j == 0 and i % n_samples == 0:
                 plt.ylabel(f"← {type_}")
     plt.tight_layout()
-    plt.savefig("solarcell_samples.png")
+    plt.savefig(f"solarcell_samples.{plot_fmt}")
     plt.show()
 
-    plt.hist(probs)
-    plt.title("Defect Probabilities")
-    plt.ylabel("Counts")
-    plt.tight_layout()
-    plt.savefig("dist_probs.png")
-    plt.show()
+    plt.figure(figsize=(6.4, 3.6))
+    plt.suptitle("Distribution of Labels")
 
-    plt.hist(types)
-    plt.title("Cell types")
+    plt.subplot(1, 2, 1)
+    plt.hist(types, bins=2, rwidth=0.8)
+    plt.xlabel("Cell types")
+
+    plt.subplot(1, 2, 2)
+    plt.hist(probs, bins=4, rwidth=0.8)
+    plt.xticks(prob_values, prob_names)
+    plt.xlabel("Defect Probabilities")
     plt.ylabel("Counts")
     plt.tight_layout()
-    plt.savefig("dist_types.png")
+
+    plt.savefig(f"dists.{plot_fmt}", dpi=200)
     plt.show()
 
     samples_grid = (4, 5)
@@ -142,7 +149,7 @@ if not training_mode:
             plt.xticks([])
             plt.yticks([])
     plt.tight_layout()
-    plt.savefig("solarcell.png", facecolor="black")
+    plt.savefig(f"solarcell.{plot_fmt}", facecolor="black")
     plt.show()
 
 
@@ -468,7 +475,7 @@ if training_mode:
 # %% Evaluation
 
 
-def plot_learning_curve(history, name, exclude=[], save_path=None):
+def plot_learning_curve(history, name, exclude=[], save_path=None, logy=False):
     """Plot learning curve(s) from history dictionary."""
     for key, curve in history.items():
         if any(ex in key for ex in exclude):
@@ -485,6 +492,10 @@ def plot_learning_curve(history, name, exclude=[], save_path=None):
     plt.legend()
     plt.title(f"Learning Curve of {name}")
     plt.xlabel("Epoch")
+    if logy:
+        plt.yscale("log")
+    else:
+        plt.ylim(bottom=0)
     if save_path is not None:
         plt.savefig(save_path, dpi=200)
     plt.show()
@@ -521,6 +532,7 @@ if not training_mode:
             BinaryMultiplexer=BinaryMultiplexer,
         ),
     )
+    print(f"-- loaded model `{model_path}`")
     with (history_path).open() as infile:
         history = json.load(infile)
         print("-- loaded `history` for run " + history.pop("__timestamp__", "N/A"))
@@ -540,7 +552,7 @@ if not training_mode:
             history_scaled,
             f"Defect Prob. Model\n(LR={learning_rate_method}, ARCH={architecture})",
             exclude=["dense_type_1", "MAE"],
-            save_path="learning_curve.png",
+            save_path=f"learning_curve.{plot_fmt}",
         )
         del history_scaled
     else:
@@ -548,27 +560,44 @@ if not training_mode:
             history,
             f"Defect Prob. Model\n(LR={learning_rate_method}, ARCH={architecture})",
             exclude=["dense_type_1", "MAE"],
+            save_path=f"learning_curve.{plot_fmt}",
         )
 
     val_pred = model.predict(X_val)
+    y_probs_val_quant = np.round(3 * y_probs_val).astype(int)
+    prob_val_pred_quant = np.minimum(np.floor(4 * val_pred[1]).astype(int), 3)
 
+    # TODO compute on uniformly distributed data
+    prob_accuracy = accuracy_score(y_probs_val_quant, prob_val_pred_quant)
+    print(f"Defect probability prediction accuracy: {prob_accuracy:02f}")
+
+    plt.figure(figsize=(12.8, 4.8))
+    ax = plt.subplot(1, 2, 1)
     cm = confusion_matrix(y_types_val, val_pred[0] >= 0.5)
     disp = ConfusionMatrixDisplay(cm, display_labels=type_values)
-    disp.plot()
-    plt.savefig("types_confusion_matrix.png", dpi=200)
+    disp.plot(ax=ax)
+    plt.title("Confusion of Cell Type")
+
+    ax = plt.subplot(1, 2, 2)
+    cm_prob = confusion_matrix(y_probs_val_quant, prob_val_pred_quant)
+    disp_prob = ConfusionMatrixDisplay(
+        cm_prob, display_labels=[f"{p:.1f}" for p in prob_values]
+    )
+    disp_prob.plot(ax=ax)
+    plt.title("Confusion of Defect Probability")
+    plt.savefig(f"confusion_matrix.{plot_fmt}", dpi=200)
     plt.show()
 
     plt.figure(figsize=(6.4, 6.4))
     sns.violinplot(x=y_probs_val.reshape(-1), y=val_pred[1].reshape(-1), inner="stick")
     plt.title("Defect Probability")
-    plt.xticks(range(4), ["0", "⅓", "⅔", "1"])
+    plt.xticks(range(4), prob_names)
     plt.xlabel("Validation Values")
     plt.ylim([0, 1])
     plt.ylabel("Predicted Values")
-    plt.savefig("prob_regression.png", dpi=200)
+    plt.savefig(f"prob_regression.{plot_fmt}", dpi=200)
     plt.show()
 
-    prob_val_pred_quant = np.round(3 * val_pred[1]) / 3
     plt.figure(figsize=(6.4, 6.4))
     for i, pred_prob in enumerate(prob_values):
         mask_pred = prob_val_pred_quant == pred_prob
@@ -577,9 +606,7 @@ if not training_mode:
             mask = mask.reshape(-1)
             sample = X_val[mask][:, :, :, 0]
 
-            row = i
-            col = j
-            plt.subplot(4, 4, 4 * row + col + 1)
+            plt.subplot(4, 4, 4 * i + j + 1)
 
             if len(sample) > 0:
                 plt.imshow(sample[0])
@@ -587,11 +614,55 @@ if not training_mode:
             plt.axis("image")
             plt.xticks([])
             plt.yticks([])
-            if row == 0:
+            if i == 0:
                 plt.title(f"true={true_prob:.1f}")
-            if col == 0:
+            if j == 0:
                 plt.ylabel(f"pred={pred_prob:.1f}")
     plt.tight_layout()
+    plt.savefig(f"pred_sample.{plot_fmt}", dpi=200)
+    plt.show()
+
+    sample_rows = 4
+    sample_cols = 2
+    plt.figure(figsize=(2 * sample_cols * 1.6, sample_rows * 1.6))
+    plt.figtext(
+        0.25,
+        0.98,
+        "Expected 0 got 1",
+        ha="center",
+        fontsize=rcParams["axes.titlesize"],
+        fontweight=rcParams["axes.titleweight"],
+    )
+    plt.figtext(
+        0.75,
+        0.98,
+        "Expected 1 got 0",
+        ha="center",
+        fontsize=rcParams["axes.titlesize"],
+        fontweight=rcParams["axes.titleweight"],
+    )
+    for i in range(2):
+        true_prob = prob_names[3 * i]
+        pred_prob = prob_names[3 * (1 - i)]
+        mask = (y_probs_val_quant == 3 * i) & (prob_val_pred_quant == 3 * (1 - i))
+        mask = mask.reshape(-1)
+        sample = X_val[mask][:, :, :, 0]
+
+        for j in range(sample_rows * sample_cols):
+            col = sample_cols * i + j % sample_cols
+            row = j // sample_cols
+            plt.subplot(sample_rows, 2 * sample_cols, 2 * sample_cols * row + col + 1)
+
+            if j < len(sample):
+                plt.imshow(sample[j])
+
+            plt.axis("image")
+            plt.xticks([])
+            plt.yticks([])
+            if row == 0 and col == 0:
+                plt.title(" ")
+    plt.tight_layout()
+    plt.savefig(f"bad_predictions.{plot_fmt}", dpi=200)
     plt.show()
 
     # %% Quiz
@@ -610,5 +681,5 @@ if not training_mode:
         plt.yticks([])
         plt.xlabel(f"Type: {type_}     Defect Prob.: {prob:.2f}", color="white")
         plt.tight_layout()
-        plt.savefig(f"quiz-{i}.png", dpi=200)
+        plt.savefig(f"quiz-{i}.{plot_fmt}", dpi=200)
         plt.show()
