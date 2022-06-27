@@ -18,15 +18,15 @@ from tensorflow import keras
 
 from elpv_dataset.utils.elpv_reader import load_dataset
 
-architectures = {"v1", "v2", "v3"}
+architectures = {"v1", "v2", "v3", "v4"}
 learning_rate_methods = {"const", "exp-decay", "adaptive"}
 
 
 # %% Initialization
 
 use_pretrained_type_model = True
-training_id = os.environ.get("TRAINING_ID", None)
-architecture = os.environ.get("ARCH", "v3")
+training_id = os.environ.get("TRAINING_ID", "6")
+architecture = os.environ.get("ARCH", "v4")
 learning_rate_method = os.environ.get("LR", "adaptive")
 plot_fmt = "svg"
 
@@ -180,7 +180,10 @@ X = X.astype(float) / (255 * 2) - 1
 
 # No conversion needed as the values are already in [0, 1] and
 # we are modelling the problem as a regression.
-y_probs = probs.reshape(-1, 1)
+if architecture != "v4":
+    y_probs = np.round(probs.reshape(-1, 1))
+else:
+    y_probs = probs.reshape(-1, 1)
 
 # One-hot encoding of the types
 y_types = np.zeros((types.shape[0], 1), dtype=bool)
@@ -295,7 +298,10 @@ data_augmentation.add(NormalNoise(stddev=0.05))
 
 aug_inputs = data_augmentation(inputs)
 feature_maps = cnn(aug_inputs)
-flat_feature_maps = keras.layers.Flatten()(feature_maps)
+if architecture == "v4":
+    flat_feature_maps = keras.layers.GlobalAveragePooling2D()(feature_maps)
+else:
+    flat_feature_maps = keras.layers.Flatten()(feature_maps)
 type_ = keras.layers.Dense(1, activation="sigmoid", name="dense_type_1")(
     flat_feature_maps
 )
@@ -337,14 +343,13 @@ elif architecture in {"v2", "v3"}:
     prob1 = keras.layers.Dense(1, activation="sigmoid", name="dense_prob_1")(
         flat_feature_maps
     )
-
-    modulated_prob1 = keras.layers.Multiply()([prob1, type_])
     prob2 = keras.layers.Dense(1, activation="sigmoid", name="dense_prob_2")(
         flat_feature_maps
     )
 
     if architecture == "v2":
         type_inv = keras.layers.Lambda(lambda x: 1 - x, name="invert_type")(type_)
+        modulated_prob1 = keras.layers.Multiply()([prob1, type_])
         modulated_prob2 = keras.layers.Multiply()([prob2, type_inv])
 
         combined_prob = keras.layers.Concatenate()([modulated_prob1, modulated_prob2])
@@ -353,6 +358,19 @@ elif architecture in {"v2", "v3"}:
         )
     elif architecture == "v3":
         prob = BinaryMultiplexer(name="switch_prob")([type_, prob1, prob2])
+elif architecture == "v4":
+    prob_outs = [None, None]
+    for i in range(2):
+        dense1_prob = keras.layers.Dense(
+            96, activation="sigmoid", name=f"dense1_prob_{i}"
+        )(flat_feature_maps)
+        dense2_prob = keras.layers.Dense(
+            4, activation="sigmoid", name=f"dense2_prob_{i}"
+        )(flat_feature_maps)
+        prob_outs[i] = keras.layers.Dense(
+            1, activation="sigmoid", name=f"dense3_prob_{i}"
+        )(dense2_prob)
+    prob = BinaryMultiplexer(name="switch_prob")([type_, *prob_outs])
 
 model = keras.Model(inputs, [type_, prob], name="elpv")
 
